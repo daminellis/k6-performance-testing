@@ -17,4 +17,4 @@ In order to execute this project you must follow the steps below:
 1. Run `npm i --save-dev` to install all the project dependencies
 1. Run `npm run ci` to execute the entire test suite
 
-All execution artifacts can be found in `./output`.
+All execution reports can be found in `src/output`.
