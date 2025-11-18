@@ -4,19 +4,23 @@ import http from 'k6/http';
 import { check } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-export const getContactsDuration = new Trend('get_contacts', true);
-export const RateContentOK = new Rate('content_OK');
+// Métricas
+export const getPostsDuration = new Trend('get_posts_duration', true);
+export const statusCodeRate = new Rate('status_code_ok');
 
 export const options = {
   thresholds: {
-    http_req_failed: ['rate<0.30'],
-    get_contacts: ['p(99)<500'],
-    content_OK: ['rate>0.95']
+    // 90% das respostas abaixo de 6800ms
+    get_posts_duration: ['p(90)<6800'],
+    // Menos de 25% das requisições retornando erro
+    http_req_failed: ['rate<0.25']
   },
   stages: [
-    { duration: '10s', target: 2 },
-    { duration: '10s', target: 4 },
-    { duration: '10s', target: 6 }
+    // Rampa de 7 até 92 VU's, 3.5 min = 210 sec
+    { duration: '30s', target: 7 }, // Inicia 7
+    { duration: '90s', target: 50 }, // Aumento gradual
+    { duration: '60s', target: 92 }, // Bate 92 VU's
+    { duration: '30s', target: 92 } // Segura até completar 3.5min
   ]
 };
 
@@ -28,7 +32,7 @@ export function handleSummary(data) {
 }
 
 export default function () {
-  const baseUrl = 'https://test.k6.io/';
+  const baseUrl = 'https://jsonplaceholder.typicode.com';
 
   const params = {
     headers: {
@@ -38,13 +42,14 @@ export default function () {
 
   const OK = 200;
 
-  const res = http.get(`${baseUrl}`, params);
+  const res = http.get(`${baseUrl}/posts`, params);
 
-  getContactsDuration.add(res.timings.duration);
+  getPostsDuration.add(res.timings.duration);
 
-  RateContentOK.add(res.status === OK);
+  statusCodeRate.add(res.status === OK);
 
   check(res, {
-    'GET Contacts - Status 200': () => res.status === OK
+    'GET Posts - Status 200': () => res.status === OK,
+    'GET Posts - Resposta abaixo de 6800ms': () => res.timings.duration < 6800
   });
 }
